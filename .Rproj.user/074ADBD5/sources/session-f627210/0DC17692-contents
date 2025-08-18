@@ -37,3 +37,35 @@ pred_2023_croped <- crop(pred_2023, buffMM, snap = "in", mask = T)
 plot(pred_2023_croped)
 plot(buffMM, add = T)
 plot(valid_2025, add = T)
+
+## convert validation data information to grassland type code
+GT_char <- c("Dry grassland",
+             "Mesic grassland",
+             "Wet and seasonally wet grassland",
+             "Alpine and sub-alpine grassland",
+             "Forest clearings",
+             "Inland salt steppes",
+             "Sparsely wooded grassland"
+)
+
+GT_code <- 21:27
+
+# create new col with EUGW code
+valid_2025$code_EUNIS_LC <- GT_code[match(valid_2025$EUNIS_LC, GT_char)]
+
+## confusion matrix
+# extract inforamtion for validation sites
+data <- extract(c(pred_2023_croped), valid_2025, ID=TRUE)
+data <- cbind(data, valid = valid_2025$code_EUNIS_LC)
+
+# confusion matrix
+cm <- confusionMatrix(
+  factor(data$predicted_label, levels=21:27),
+  factor(data$valid, levels=21:27)
+)
+cm
+
+# AUC for "Dry grasslands"
+# roc_21 <- roc(data$valid == 21, data$### confid for 21)  
+# auc(roc_obj)
+
