@@ -101,4 +101,3 @@ modus <- app(all_class_rasters, fun = function(x) {
   ux[which.max(tabulate(match(x, ux)))]
 })
 plot(modus, main="Most frequent class per pixel (2016–2023)")
-plot(pred_2023_croped)
