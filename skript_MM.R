@@ -1,5 +1,6 @@
 # Milovice ‒ Mlada
 
+### data prep
 ## libraries
 source("scripts/knihovnik.R")
 knihovnik(c("terra", "sf", "caret", "pROC"))
@@ -53,19 +54,51 @@ GT_code <- 21:27
 # create new col with EUGW code
 valid_2025$code_EUNIS_LC <- GT_code[match(valid_2025$EUNIS_LC, GT_char)]
 
-## confusion matrix
-# extract inforamtion for validation sites
+### confusion matrix
+## extract inforamtion for validation sites
 data <- extract(c(pred_2023_croped), valid_2025, ID=TRUE)
 data <- cbind(data, valid = valid_2025$code_EUNIS_LC)
 
-# confusion matrix
+## confusion matrix
 cm <- confusionMatrix(
   factor(data$predicted_label, levels=21:27),
   factor(data$valid, levels=21:27)
 )
 cm
 
-# AUC for "Dry grasslands"
+## AUC for "Dry grasslands"
 # roc_21 <- roc(data$valid == 21, data$### confid for 21)  
 # auc(roc_obj)
 
+### stability map
+# load rasters
+files_class <- list.files(
+  path = "Milovice_Mlada/EUGW_data/", 
+  pattern = "CLASS\\.tif$", 
+  full.names = TRUE
+)
+files_class <- sort(files_class)
+all_class_rasters <- rast(files_class)
+
+# crop rasters
+all_class_rasters <- crop(all_class_rasters, buffMM, snap = "in", mask = T)
+
+# rename rasters by years
+years <- substr(basename(files_class), 18, 21)
+names(all_class_rasters) <- years
+
+## binary stability ‒ where class does not change through years
+stable <- app(all_class_rasters, fun = function(x) all(x == x[1])) # all values same?
+plot(stable, main="Stable (TRUE) vs Changed (FALSE)")
+
+## number of changes through years
+nchanges <- app(all_class_rasters, fun = function(x) sum(diff(x) != 0))
+plot(nchanges, main="Number of changes (2016–2023)")
+
+## modus map ??????? does this heve even hlava and pata ??????
+modus <- app(all_class_rasters, fun = function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+})
+plot(modus, main="Most frequent class per pixel (2016–2023)")
+plot(pred_2023_croped)
