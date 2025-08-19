@@ -1,11 +1,11 @@
-### MM transition matrix and sankey diagram
+### Praded transition matrix and sankey diagram
 
 source("scripts/knihovnik.R")
 co <- c("terra", "dplyr", "stringr", "tidyr", "networkD3", "htmlwidgets")
 knihovnik(co)
 
 # data path
-dir <- "Milovice_Mlada/EUGW_data/"
+dir <- "Praded/EUGW_data/"
 
 # load resters and sort them
 files_class <- list.files(
@@ -106,11 +106,11 @@ links <- transitions_df |>
     link_group = factor(from_class, levels = desired_order)  # for link color
   )
 
-## set limit for senkey
+## limit sankey diagram for better readability
 # links
-min_count_for_sankey <- 1000
-if (min_count_for_sankey > 0) {
-  links <- links |> filter(count >= min_count_for_sankey) # filter links with lower count than x
+min_count_for_links <- 1000
+if (min_count_for_links > 0) {
+  links <- links |> filter(count >= min_count_for_links) # filter links with lower count than x
 }
 
 min_count_for_nodes <- 1000
@@ -138,7 +138,6 @@ if (min_count_for_nodes > 0) {
   
   # resample IDs
   id_map <- setNames(seq_len(nrow(nodes)) - 1, nodes$id)
-  
   nodes$id <- unname(id_map[as.character(nodes$id)])
   links$source <- unname(id_map[as.character(links$source)])
   links$target <- unname(id_map[as.character(links$target)])
@@ -177,4 +176,4 @@ sankey <- networkD3::sankeyNetwork(
 
 # plot and save
 sankey
-saveWidget(sankey, file = "data/out/sankey.html", selfcontained = TRUE)
+saveWidget(sankey, file = "data/out/sankey_Praded.html", selfcontained = TRUE)
