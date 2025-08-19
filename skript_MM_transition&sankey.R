@@ -4,9 +4,8 @@ source("scripts/knihovnik.R")
 co <- c("terra", "dplyr", "stringr", "tidyr", "networkD3", "htmlwidgets")
 knihovnik(co)
 
-# config
+# data path
 dir <- "Milovice_Mlada/EUGW_data/"
-min_count_for_sankey <- 100
 
 # load resters and sort them
 files_class <- list.files(
@@ -29,52 +28,65 @@ if (any(is.na(years))) stop("For some files year identification failed!")
 r_stack <- rast(files_class)
 names(r_stack) <- years
 
-# pairwise transition matrix between years
+## pairwise transition matrix between years
+# prepare empty list
 pairwise_list <- vector("list", nlyr(r_stack) - 1)
 
+# loop, which extracts pairwise trtansition matrix
+# each time starting year is selected and compared to year+1
 for (i in 1:(nlyr(r_stack) - 1)) {
   r_from <- r_stack[[i]]
   r_to   <- r_stack[[i + 1]]
   
-  # spojíme do dvouvrstvého rastru a pojmenujeme
+  # twin raster is created
   rr <- c(r_from, r_to)
   names(rr) <- c("from_class", "to_class")
   
-  # vyexportujeme dvojice hodnot pixelů, bez NA
+  # extract possible cell values combinations, drop NA
   df <- terra::as.data.frame(rr, na.rm = TRUE)
   
-  # omezíme na 21:27 (pokud chceš)
+  # in case of EUGW, we are only interested in valuse from 21 to 27 (anyway there are no other values, except NA)
   df <- df |>
     filter(from_class %in% 21:27, to_class %in% 21:27)
   
-  # spočítáme četnosti
+  # lets count number of pixels in each transition cathegory
   ct <- df |>
     count(from_class, to_class, name = "count") |>
     mutate(year_from = names(r_stack)[i],
            year_to   = names(r_stack)[i + 1])
   
   pairwise_list[[i]] <- ct
+  
+  # rubbish, gc
+  rm(r_from, r_to, rr, df, ct)
+  gc()
 }
 
 transitions_df <- bind_rows(pairwise_list)
+rm(pairwise_list)
 
-# --- NODES + LINKS PRO SANKEY ---
+## create NODES and LINKS for sankey diagram
+# names
 src_names <- paste0(transitions_df$year_from, "_", transitions_df$from_class)
 tgt_names <- paste0(transitions_df$year_to,   "_", transitions_df$to_class)
 node_names <- unique(c(src_names, tgt_names))
 
+# df for nodes
 nodes <- data.frame(name = node_names, stringsAsFactors = FALSE)
-nodes$year  <- as.integer(substr(nodes$name, 1, 4))
-nodes$class <- as.integer(sub(".*_(\\d+)$", "\\1", nodes$name))
-# Seřadit: rok vzestupně, třída podle 21..27 (i když některé nemusí být přítomné)
-desired_order <- 21:27
-nodes$class_rank <- match(nodes$class, desired_order)
-nodes <- nodes[order(nodes$year, nodes$class_rank, nodes$class), ]
-nodes$id <- seq_len(nrow(nodes)) - 1
-nodes$group <- as.factor(nodes$year)  # pro barvy
-nodes <- nodes[, c("name", "id", "group")]
+nodes$year  <- as.integer(substr(nodes$name, 1, 4)) # extract year
+nodes$class <- as.integer(sub(".*_(\\d+)$", "\\1", nodes$name)) # extract class
 
-# --- LINKS: mapování na ID ---
+# sort: year ascending, class 21→27 (but some of them are absent)
+desired_order <- 21:27
+nodes$class_rank <- match(nodes$class, desired_order) # define desired order of classes within nodes df
+nodes <- nodes[order(nodes$year, nodes$class_rank, nodes$class), ] # sort
+nodes$id <- seq_len(nrow(nodes)) - 1
+
+nodes$node_group <- factor(as.character(nodes$class),
+                           levels = as.character(desired_order))
+nodes <- nodes[, c("name", "id", "node_group")]
+
+# LINKS
 links <- transitions_df |>
   mutate(source_name = paste0(year_from, "_", from_class),
          target_name = paste0(year_to,   "_", to_class)) |>
@@ -83,101 +95,136 @@ links <- transitions_df |>
   left_join(nodes[, c("name","id")], by = c("target_name" = "name")) |>
   rename(target = id) |>
   transmute(
-    source, target,
-    value = count,
-    year_from, year_to, from_class, to_class
+    source,
+    target,
+    count,
+    year_from,
+    year_to,
+    from_class,
+    to_class,
+    link_group = factor(from_class, levels = desired_order)  # for link color
   )
 
-
+# set limit for senkey
+hist(links$count, breaks = 20)
+min_count_for_sankey <- 1000
 if (min_count_for_sankey > 0) {
-  links <- links |> filter(value >= min_count_for_sankey)
+  links <- links |> filter(count >= min_count_for_sankey)
 }
 
-# --- Barevná škála podle roku (doména = unikátní roky) ---
-years_vec <- sort(unique(nodes$group))
-# vyrobíme JS scale s 8 barvami (případně přidej další)
-col_range <- c("#1f77b4","#ff7f0e","#2ca02c","#d62728",
-               "#9467bd","#8c564b","#e377c2","#7f7f7f")
-# když je víc roků než barev, zrecykluje se
+min_count_for_nodes <- 1000
+if (min_count_for_nodes > 0) {
+  # spočítej součet hodnot pro každý uzel
+  node_strength <- links %>%
+    group_by(source) %>%
+    summarise(total_out = sum(count), .groups = "drop") %>%
+    full_join(
+      links %>% group_by(target) %>%
+        summarise(total_in = sum(count), .groups = "drop"),
+      by = c("source" = "target")
+    ) %>%
+    mutate(id = source,
+           total = rowSums(across(c(total_out, total_in)), na.rm = TRUE)) %>%
+    select(id, total)
+  
+  keep_nodes <- node_strength %>%
+    filter(total >= min_count_for_nodes) %>%
+    pull(id)
+  
+  # vyfiltruj nodes a links
+  nodes <- nodes %>% filter(id %in% keep_nodes)
+  links <- links %>% filter(source %in% keep_nodes, target %in% keep_nodes)
+  
+  # přečísluj id od nuly
+  id_map <- setNames(seq_len(nrow(nodes)) - 1, nodes$id)
+  
+  nodes$id <- unname(id_map[as.character(nodes$id)])
+  links$source <- unname(id_map[as.character(links$source)])
+  links$target <- unname(id_map[as.character(links$target)])
+}
+
+# colors
+class_levels <- as.character(desired_order)
+palette_classes <- c("steelblue", "orange", "firebrick", "grey", "deeppink2", "forestgreen", "darkorchid")
+palette_classes <- rep(palette_classes, length.out = length(class_levels)) # if more classes than colors
+
 colourScale_js <- htmlwidgets::JS(
   sprintf(
     "d3.scaleOrdinal().domain(%s).range(%s)",
-    jsonlite::toJSON(as.character(years_vec)),
-    jsonlite::toJSON(rep(col_range, length.out = length(years_vec)))
+    jsonlite::toJSON(class_levels),
+    jsonlite::toJSON(palette_classes)
   )
 )
 
-# --- Vykreslení: iterations=0 zachová vstupní pořadí uvnitř sloupce ---
+# sankey creation
 sankey <- networkD3::sankeyNetwork(
   Links = links,
   Nodes = nodes,
   Source = "source",
   Target = "target",
-  Value  = "value",
+  Value  = "count",
   NodeID = "name",
-  NodeGroup = "group",       # barvy podle roku
+  NodeGroup = "node_group",   # NODES: color = group
+  LinkGroup = "link_group",   # LINKS: color = group of source
   colourScale = colourScale_js,
   fontSize = 12,
   nodeWidth = 26,
   nodePadding = 10,
   sinksRight = FALSE,
-  iterations = 0             # důležité pro zachování pořadí (21:27)
+  iterations = 0 # !!! to keep desired order
 )
 
-# --- Přidat popisky roků nad sloupce (JS po vykreslení) ---
-sankey <- htmlwidgets::onRender(
-  sankey,
-  "
-  function(el, x) {
-    var svg   = d3.select(el).select('svg');
-    var nodes = d3.select(el).selectAll('.node').data();  // data s pozicemi
-    if (!nodes || !nodes.length) return;
-
-    // Získat unikátní roky a jejich x-pozice (sloupce)
-    var cols = {};
-    nodes.forEach(function(d){
-      var year = d.name.split('_')[0];
-      if(!cols[year]) cols[year] = [];
-      cols[year].push(d.x);
-    });
-
-    // Vyrob popisek pro každý rok nad jeho sloupcem (x = min x v daném roce)
-    Object.keys(cols).sort().forEach(function(year){
-      var xs = cols[year];
-      var xMin = d3.min(xs);
-      // šířka uzlu je d.dx – vezmeme první uzel s daným rokem pro odhad středu
-      var nd = nodes.find(function(n){ return n.name.indexOf(year + '_') === 0; });
-      var dx = nd && nd.dx ? nd.dx : 0;
-      var xCenter = xMin + dx/2 + 2;
-
-      svg.append('text')
-        .attr('x', xCenter)
-        .attr('y', 14)                 // výška popisku
-        .attr('text-anchor', 'middle')
-        .style('font-size', '12px')
-        .style('font-weight', '600')
-        .text(year);
-    });
-  }
-  "
-)
-
-# Zobrazit a uložit
+# plot and save
 sankey
-saveWidget(sankey, file = "sankey_grasslands_2016_2023.html", selfcontained = TRUE)
+saveWidget(sankey, file = "data/out/sankey.html", selfcontained = TRUE)
 
-# --- 5) (Volitelné) Agregace na jednu velkou matici pro každý pár let zvlášť i export ---
-# Export všech párových matic jako CSV
-dir.create("transition_csv", showWarnings = FALSE)
-transitions_df %>%
-  group_by(year_from, year_to) %>%
-  arrange(from_class, to_class) %>%
-  write.csv("transition_csv/ALL_transitions_long.csv", row.names = FALSE)
+################################################################################
 
-# Pro rychlou kontrolu: jedna maticová tabulka pro 2016->2023
-if (all(c("2016","2023") %in% years)) {
-  i2016 <- which(years == "2016")
-  i2023 <- which(years == "2023")
-  mat_16_23 <- crosstab(r_stack[[i2016]], r_stack[[i2023]])
-  write.csv(as.data.frame(mat_16_23), "transition_csv/transition_2016_to_2023.csv", row.names = FALSE)
-}
+desired_order <- 21:27
+
+df_plot <- transitions_df %>%
+  filter(year_from == "2016", year_to == "2017") %>%
+  rename(freq = count) %>%
+  mutate(from_class = factor(from_class, levels = desired_order),
+         to_class   = factor(to_class,   levels = desired_order))
+
+ggplot(df_plot,
+       aes(axis1 = from_class, axis2 = to_class, y = freq)) +
+  geom_alluvium(aes(fill = from_class), width = 1/12, knot.pos = 0.3) +
+  geom_stratum(width = 1/12, fill = "grey80", color = "black") +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("2016", "2017"), expand = c(.1, .1)) +
+  scale_fill_brewer(type = "qual", palette = "Set1") +
+  ggtitle("Transition 2016 → 2017 (grassland classes 21–27)")
+
+
+
+
+# 1) převést stack na data.frame (pixel = řádek, roky = sloupce)
+df_seq <- as.data.frame(r_stack, na.rm = TRUE)
+names(df_seq) <- as.character(2016:2023)
+
+# 2) spočítat četnosti unikátních trajektorií
+df_counts <- df_seq %>%
+  group_by(across(everything())) %>%
+  summarise(freq = n(), .groups = "drop")
+
+# 3) přidat ID trajektorie = alluvium
+df_counts$traj_id <- seq_len(nrow(df_counts))
+
+# 4) převést do long formátu
+df_long <- df_counts %>%
+  pivot_longer(cols = as.character(2016:2023),
+               names_to = "year", values_to = "class") %>%
+  mutate(year  = factor(year, levels = as.character(2016:2023)),
+         class = factor(class, levels = as.character(21:27)))
+
+# 5) vykreslení
+ggplot(df_long,
+       aes(x = year, stratum = class, alluvium = traj_id, 
+           y = freq, fill = class)) +
+  geom_flow(stat = "alluvium", lode.guidance = "forward", knot.pos = 0.3) +
+  geom_stratum(width = 1/12, color = "black") +
+  scale_fill_brewer(type = "qual", palette = "Set1") +
+  ggtitle("Grassland class transitions 2016–2023")
+
