@@ -69,6 +69,10 @@ rm(pairwise_list)
 # names
 src_names <- paste0(transitions_df$year_from, "_", transitions_df$from_class)
 tgt_names <- paste0(transitions_df$year_to,   "_", transitions_df$to_class)
+
+# src_names <- paste0(transitions_df$from_class)
+# tgt_names <- paste0(transitions_df$to_class)
+
 node_names <- unique(c(src_names, tgt_names))
 
 # df for nodes
@@ -105,16 +109,16 @@ links <- transitions_df |>
     link_group = factor(from_class, levels = desired_order)  # for link color
   )
 
-# set limit for senkey
-hist(links$count, breaks = 20)
+## set limit for senkey
+# links
 min_count_for_sankey <- 1000
 if (min_count_for_sankey > 0) {
-  links <- links |> filter(count >= min_count_for_sankey)
+  links <- links |> filter(count >= min_count_for_sankey) # filter links with lower count than x
 }
 
 min_count_for_nodes <- 1000
 if (min_count_for_nodes > 0) {
-  # spočítej součet hodnot pro každý uzel
+  # compute count for each nod
   node_strength <- links %>%
     group_by(source) %>%
     summarise(total_out = sum(count), .groups = "drop") %>%
@@ -177,54 +181,3 @@ sankey <- networkD3::sankeyNetwork(
 # plot and save
 sankey
 saveWidget(sankey, file = "data/out/sankey.html", selfcontained = TRUE)
-
-################################################################################
-
-desired_order <- 21:27
-
-df_plot <- transitions_df %>%
-  filter(year_from == "2016", year_to == "2017") %>%
-  rename(freq = count) %>%
-  mutate(from_class = factor(from_class, levels = desired_order),
-         to_class   = factor(to_class,   levels = desired_order))
-
-ggplot(df_plot,
-       aes(axis1 = from_class, axis2 = to_class, y = freq)) +
-  geom_alluvium(aes(fill = from_class), width = 1/12, knot.pos = 0.3) +
-  geom_stratum(width = 1/12, fill = "grey80", color = "black") +
-  geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
-  scale_x_discrete(limits = c("2016", "2017"), expand = c(.1, .1)) +
-  scale_fill_brewer(type = "qual", palette = "Set1") +
-  ggtitle("Transition 2016 → 2017 (grassland classes 21–27)")
-
-
-
-
-# 1) převést stack na data.frame (pixel = řádek, roky = sloupce)
-df_seq <- as.data.frame(r_stack, na.rm = TRUE)
-names(df_seq) <- as.character(2016:2023)
-
-# 2) spočítat četnosti unikátních trajektorií
-df_counts <- df_seq %>%
-  group_by(across(everything())) %>%
-  summarise(freq = n(), .groups = "drop")
-
-# 3) přidat ID trajektorie = alluvium
-df_counts$traj_id <- seq_len(nrow(df_counts))
-
-# 4) převést do long formátu
-df_long <- df_counts %>%
-  pivot_longer(cols = as.character(2016:2023),
-               names_to = "year", values_to = "class") %>%
-  mutate(year  = factor(year, levels = as.character(2016:2023)),
-         class = factor(class, levels = as.character(21:27)))
-
-# 5) vykreslení
-ggplot(df_long,
-       aes(x = year, stratum = class, alluvium = traj_id, 
-           y = freq, fill = class)) +
-  geom_flow(stat = "alluvium", lode.guidance = "forward", knot.pos = 0.3) +
-  geom_stratum(width = 1/12, color = "black") +
-  scale_fill_brewer(type = "qual", palette = "Set1") +
-  ggtitle("Grassland class transitions 2016–2023")
-
