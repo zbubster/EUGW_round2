@@ -7,7 +7,7 @@ knihovnik(c("terra", "sf", "caret", "pROC"))
 
 ## load data
 pred_2023 <- rast("Milovice_Mlada/EUGW_data/CZ_CON_CON_75111_20230101_20231231_GTYH_CLASS.tif")
-valid_2025 <- vect("Milovice_Mlada/export.gpkg")
+valid_2025 <- vect("Milovice_Mlada/COMPLETE_field_data.gpkg")
 
 ## reproject to same CRS
 source("scripts/CRS.R")
@@ -37,7 +37,8 @@ pred_2023_croped <- crop(pred_2023, buffMM, snap = "in", mask = T)
 # check
 plot(pred_2023_croped)
 plot(buffMM, add = T)
-plot(valid_2025, add = T)
+plot(valid_2025, add = T, pch = 16, col = "steelblue", cex = 1.3)
+plot(valid_2025, add = T, pch = "+", col = "orange", cex = 1)
 
 ## convert validation data information to grassland type code
 GT_char <- c("Dry grassland",
@@ -90,14 +91,16 @@ names(all_class_rasters) <- years
 ## binary stability ‒ where class does not change through years
 stable <- app(all_class_rasters, fun = function(x) all(x == x[1])) # all values same?
 plot(stable, main="Stable (TRUE) vs Changed (FALSE)")
+writeRaster(stable, "data/out/stable_pixels.tif")
 
 ## number of changes through years
 nchanges <- app(all_class_rasters, fun = function(x) sum(diff(x) != 0))
 plot(nchanges, main="Number of changes (2016–2023)")
+writeRaster(nchanges, "data/out/Nchanges_per_pixel.tif")
 
 ## modus map ??????? does this heve even hlava and pata ??????
-modus <- app(all_class_rasters, fun = function(x) {
-  ux <- unique(x)
-  ux[which.max(tabulate(match(x, ux)))]
-})
-plot(modus, main="Most frequent class per pixel (2016–2023)")
+# modus <- app(all_class_rasters, fun = function(x) {
+#   ux <- unique(x)
+#   ux[which.max(tabulate(match(x, ux)))]
+# })
+# plot(modus, main="Most frequent class per pixel (2016–2023)")
