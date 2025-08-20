@@ -3,7 +3,7 @@
 ### data prep
 ## libraries
 source("scripts/knihovnik.R")
-knihovnik(c("terra", "sf", "caret", "pROC"))
+knihovnik(terra, sf, caret, pROC)
 
 ## load data
 pred_2023 <- rast("Praded/EUGW_data/CZ_CON_CON_78422_20230101_20231231_GTYH_CLASS.tif")
@@ -30,6 +30,7 @@ buff <- project(buff, crs(pred_2023)) # to EPSG 3035
 # split to separete N2K sites
 # buffMM <- buff[buff$SITECODE == "CZ0214006"]
 buffP <- buff[buff$SITECODE == "CZ0714077"]
+# writeVector(buffP, "data/P_buff1000.gpkg")
 
 # crop original raster by buffered N2K site
 pred_2023_croped <- crop(pred_2023, buffP, snap = "in", mask = T)

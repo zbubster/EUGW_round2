@@ -3,7 +3,7 @@
 ### data prep
 ## libraries
 source("scripts/knihovnik.R")
-knihovnik(c("terra", "sf", "caret", "pROC"))
+knihovnik(terra, sf, caret, pROC)
 
 ## load data
 pred_2023 <- rast("Milovice_Mlada/EUGW_data/CZ_CON_CON_75111_20230101_20231231_GTYH_CLASS.tif")
@@ -29,7 +29,7 @@ buff <- project(buff, crs(pred_2023)) # to EPSG 3035
 
 # split to separete N2K sites
 buffMM <- buff[buff$SITECODE == "CZ0214006"]
-buffP <- buff[buff$SITECODE == "CZ0714077"]
+# writeVector(buffMM, "data/MM_buff1000.gpkg")
 
 # crop original raster by buffered N2K site
 pred_2023_croped <- crop(pred_2023, buffMM, snap = "in", mask = T)
@@ -70,37 +70,3 @@ cm
 ## AUC for "Dry grasslands"
 # roc_21 <- roc(data$valid == 21, data$### confid for 21)  
 # auc(roc_obj)
-
-### stability map
-# load rasters
-files_class <- list.files(
-  path = "Milovice_Mlada/EUGW_data/", 
-  pattern = "CLASS\\.tif$", 
-  full.names = TRUE
-)
-files_class <- sort(files_class)
-all_class_rasters <- rast(files_class)
-
-# crop rasters
-all_class_rasters <- crop(all_class_rasters, buffMM, snap = "in", mask = T)
-
-# rename rasters by years
-years <- substr(basename(files_class), 18, 21)
-names(all_class_rasters) <- years
-
-## binary stability ‒ where class does not change through years
-stable <- app(all_class_rasters, fun = function(x) all(x == x[1])) # all values same?
-plot(stable, main="Stable (TRUE) vs Changed (FALSE)")
-writeRaster(stable, "data/out/stable_pixels.tif")
-
-## number of changes through years
-nchanges <- app(all_class_rasters, fun = function(x) sum(diff(x) != 0))
-plot(nchanges, main="Number of changes (2016–2023)")
-writeRaster(nchanges, "data/out/Nchanges_per_pixel.tif")
-
-## modus map ??????? does this heve even hlava and pata ??????
-# modus <- app(all_class_rasters, fun = function(x) {
-#   ux <- unique(x)
-#   ux[which.max(tabulate(match(x, ux)))]
-# })
-# plot(modus, main="Most frequent class per pixel (2016–2023)")
