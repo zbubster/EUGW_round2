@@ -71,37 +71,3 @@ plot(buffMM, add = T)
 ## AUC for "Dry grasslands"
 # roc_21 <- roc(data$valid == 21, data$### confid for 21)  
 # auc(roc_obj)
-
-### stability map
-# load rasters
-files_class <- list.files(
-  path = "Praded/EUGW_data/", 
-  pattern = "CLASS\\.tif$", 
-  full.names = TRUE
-)
-files_class <- sort(files_class)
-all_class_rasters <- rast(files_class)
-
-# crop rasters
-all_class_rasters <- crop(all_class_rasters, buffP, snap = "in", mask = T)
-
-# rename rasters by years
-years <- substr(basename(files_class), 18, 21)
-names(all_class_rasters) <- years
-
-## binary stability ‒ where class does not change through years
-stable <- app(all_class_rasters, fun = function(x) all(x == x[1])) # all values same?
-plot(stable, main="Stable (TRUE) vs Changed (FALSE)")
-writeRaster(stable, "data/out/stable_pixels_Praded.tif")
-
-## number of changes through years
-nchanges <- app(all_class_rasters, fun = function(x) sum(diff(x) != 0))
-plot(nchanges, main="Number of changes (2016–2023)")
-writeRaster(nchanges, "data/out/Nchanges_per_pixel_Praded.tif")
-
-## modus map ??????? does this heve even hlava and pata ??????
-# modus <- app(all_class_rasters, fun = function(x) {
-#   ux <- unique(x)
-#   ux[which.max(tabulate(match(x, ux)))]
-# })
-# plot(modus, main="Most frequent class per pixel (2016–2023)")
