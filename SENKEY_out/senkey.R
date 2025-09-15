@@ -1,33 +1,5 @@
-# universal
-
-## -- ## -- ## -- ## -- ## -- ##
-
-## CONFIG
-
-#### paths
-
-dir <- "path/to/rasters"
-# replace with path to directory with EUGW rasters of your locality
-
-dir_out <- "path/out"
-# where should be output saved
-
-### plotting options
-
-min_count_for_nodes <- 1000
-# minimal number of pixels per grassland cathegory (within whole raster) to be plotted
-# drops EUNIS level2 cathegories with infrquent prediction
-
-min_count_for_links <- 1000
-# minimal number of pixels in transition between years to be plotted
-# drop poor transitions between grassland types between years
-
-## -- ## -- ## -- ## -- ## -- ##
-
 # load libraries
-source("knihovnik.R")
-knihovnik(terra, dplyr, stringr, tidyr, networkD3, htmlwidgets)
-
+knihovnik(terra, dplyr, stringr, tidyr, networkD3, htmlwidgets, htmltools)
 
 # load resters and sort them
 files_class <- list.files(
@@ -36,7 +8,7 @@ files_class <- list.files(
   full.names = TRUE
 ) %>% sort()
 
-if (length(files_class) < 2) stop("ERROR: Less than 2 rasters found. At least 2 needed for transition matrix!")
+if (length(files_class) < 2) stop("ERROR: Less than 2 rasters found. At least 2 needed for transition matrix!") else cat(paste0(length(files_class), " rasters loaded.", "\n"))
 
 # extract year from raster file name
 extract_year <- function(x) {
@@ -154,7 +126,7 @@ if (min_count_for_nodes > 0) {
     filter(total >= min_count_for_nodes) %>%
     pull(id)
   
-  # filter nodes and their
+  # filter nodes and their links
   nodes <- nodes %>% filter(id %in% keep_nodes)
   links <- links %>% filter(source %in% keep_nodes, target %in% keep_nodes)
   
@@ -196,5 +168,14 @@ sankey <- networkD3::sankeyNetwork(
   iterations = 0 # !!! to keep desired order
 )
 
-# save
-saveWidget(sankey, file = paste0(dir_out, "/sankey_diagram.html"), selfcontained = TRUE)
+
+# plot and save
+
+sankey
+
+if (!dir.exists(dir_out)) {
+  dir.create(dir_out, recursive = TRUE)
+}
+saveWidget(sankey, file = paste0(dir_out, "/sankey_diagram.html"), selfcontained = F)
+cat(paste0("DONE, diagram saved to ", dir_out, "/sankey_diagram.html", "\n"))
+
