@@ -1,0 +1,24 @@
+level,true_category,model_category,count,share
+EUNIS_LC,Sparsely wooded grassland,Dry grassland,1,0.01
+EUNIS_LC,Sparsely wooded grassland,Sparsely wooded grassland,1,0.01
+EUNIS_LC,Mesic grassland,Mesic grassland,4,0.04
+EUNIS_LC,Mesic grassland,Wet and seasonally wet grassland,1,0.01
+EUNIS_LC,Dry grassland,Dry grassland,49,0.44
+EUNIS_LC,Dry grassland,Inland salt steppes,34,0.31
+EUNIS_LC,Dry grassland,Wet and seasonally wet grassland,8,0.07
+EUNIS_LC,Dry grassland,Mesic grassland,7,0.06
+EUNIS_LC,Dry grassland,Sparsely wooded grassland,3,0.03
+SECONDARY_EUNIS_LC,Sparsely wooded grassland,Dry grassland,3,0.03
+SECONDARY_EUNIS_LC,Sparsely wooded grassland,Mesic grassland,3,0.03
+SECONDARY_EUNIS_LC,Sparsely wooded grassland,Wet and seasonally wet grassland,3,0.03
+SECONDARY_EUNIS_LC,Sparsely wooded grassland,Inland salt steppes,2,0.02
+SECONDARY_EUNIS_LC,Sparsely wooded grassland,Sparsely wooded grassland,2,0.02
+SECONDARY_EUNIS_LC,Mesic grassland,Dry grassland,6,0.05
+SECONDARY_EUNIS_LC,Mesic grassland,Inland salt steppes,6,0.05
+SECONDARY_EUNIS_LC,Mesic grassland,Wet and seasonally wet grassland,2,0.02
+SECONDARY_EUNIS_LC,Mesic grassland,Mesic grassland,1,0.01
+SECONDARY_EUNIS_LC,Dry grassland,Mesic grassland,3,0.03
+SECONDARY_EUNIS_LC,Dry grassland,Dry grassland,1,0.01
+SECONDARY_EUNIS_LC,Dry grassland,Wet and seasonally wet grassland,1,0.01
+TERTIAIRY_EUNIS_LC,Sparsely wooded grassland,Inland salt steppes,1,0.01
+TERTIAIRY_EUNIS_LC,Mesic grassland,Sparsely wooded grassland,1,0.01

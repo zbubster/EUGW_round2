@@ -1,26 +1,4 @@
-# load libraries
-knihovnik(terra, dplyr, stringr, tidyr, networkD3, htmlwidgets, htmltools)
-
-# load resters and sort them
-files_class <- list.files(
-  path = dir,
-  pattern = "CLASS\\.tif$",
-  full.names = TRUE
-) %>% sort()
-
-if (length(files_class) < 2) stop("ERROR: Less than 2 rasters found. At least 2 needed for transition matrix!") else cat(paste0(length(files_class), " rasters loaded.", "\n"))
-
-# extract year from raster file name
-extract_year <- function(x) {
-  m <- str_match(basename(x), "_(\\d{8})_")
-  if (is.na(m[1,2])) NA_character_ else substr(m[1,2], 1, 4)
-}
-years <- vapply(files_class, extract_year, character(1))
-if (any(is.na(years))) stop("For some files year identification failed!")
-
-# create raster stack
-r_stack <- rast(files_class)
-names(r_stack) <- years
+# senkey diagram
 
 ## pairwise transition matrix between years
 # prepare empty list
@@ -139,7 +117,7 @@ if (min_count_for_nodes > 0) {
 
 # colors
 class_levels <- as.character(desired_order)
-palette_classes <- c("steelblue", "orange", "firebrick", "grey", "deeppink2", "forestgreen", "darkorchid")
+palette_classes <- c("#f5ca7a", "#a5f57a", "#7ab6f5", "#ca7af5", "#5c8944", "#f57a7a", "#895a44")
 palette_classes <- rep(palette_classes, length.out = length(class_levels)) # if more classes than colors
 
 colourScale_js <- htmlwidgets::JS(
@@ -173,9 +151,6 @@ sankey <- networkD3::sankeyNetwork(
 
 sankey
 
-if (!dir.exists(dir_out)) {
-  dir.create(dir_out, recursive = TRUE)
-}
-saveWidget(sankey, file = paste0(dir_out, "/sankey_diagram.html"), selfcontained = F)
-cat(paste0("DONE, diagram saved to ", dir_out, "/sankey_diagram.html", "\n"))
+saveWidget(sankey, file = file.path(dir_out, "sankey_diagram.html"), selfcontained = F)
+cat(paste0("DONE, diagram saved to ", file.path(dir_out, "sankey_diagram.html"), "\n"))
 
